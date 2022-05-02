@@ -170,3 +170,26 @@ func bccForeachSymbol(module string) error {
 	}
 	return nil
 }
+
+func BccResolveNameByAddr(module string, pid int, addr int64) (string, error) {
+	symbol := &bccSymbolOption{}
+	symbolC := (*C.struct_bcc_symbol_option)(unsafe.Pointer(symbol))
+
+	pidC := C.int(pid)
+	cache := C.bcc_symcache_new(pidC, symbolC)
+	defer C.bcc_free_symcache(cache, pidC)
+
+	moduleCS := C.CString(module)
+	defer C.free(unsafe.Pointer(moduleCS))
+
+	symbolResult := &bccSymbol{}
+	symbolResultC := (*C.struct_bcc_symbol)(unsafe.Pointer(symbolResult))
+
+	addrC := C.uint64_t(addr)
+	res := C.bcc_symcache_resolve(cache, addrC, symbolResultC)
+	if res < 0 {
+		return "", fmt.Errorf("unable to locate symbol %s in module %s")
+	}
+
+	return fmt.Sprintf("%s --- %s", symbolResult.name, symbolResult.demangleName), nil
+}
